@@ -80,9 +80,7 @@ def get_conversation_chain(vectordb):
     - Avoid making references to specific places or figures from the medical texts.
     - Ensure not to repeat questions you've already answered.
     
-    **Your Previous Answers**: {question} ----------- **Relevant Medical Texts**: {context} ----------- **My Next 
-    Action**: If you've responded to five questions, I'll directly recommend a specialist for you. Otherwise, 
-    I'll provide another question."""
+    **Your Previous Answers**: {question} ----------- **Relevant Medical Texts**: {context} -----------"""
 
     # añadir: No me hagas referencia a figuras, etc ... no me repitas preguntas si te las he contestado
     QA_PROMPT = PromptTemplate(template=template, input_variables=["question", "context"])
