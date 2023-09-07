@@ -1,0 +1,21 @@
+credentials:
+  usernames:
+    45101711E:
+      name: Bernardo
+      last_name: Palenciano Vizcaino
+      password: $2b$12$N1KmSeK56hPazFFrgypjiep8281eN8pnQZ8S39T1ysD73m406a1Ji
+    75010101E:
+      name: Sofia
+      last_name: Palenciano Triay
+      password: $2b$12$D3MbRjzPLw0ovUFNS79prufRyoiHAbF6fxMixxQJz5yUu9OSLTRRG
+    30223344Y:
+      name: Ana
+      last_name: Triay Muñoz
+      password: $2b$12$pgs3a5xcGrcxTbOxa7Z10.OpKDZ4qkTzjzAVOlPO.I7YBkc2Fhg4u
+cookie:
+  expiry_days: 30
+  key: pass123 # Must be string
+  name: chatbot_mapfre_cookie
+preauthorized:
+  first_name:
+  - Bernardo

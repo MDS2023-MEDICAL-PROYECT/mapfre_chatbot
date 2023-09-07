@@ -9,6 +9,7 @@ __pycache__/
 #custom
 upload_to_database.py
 to_delete/
+secrets.toml
 # Distribution / packaging
 .Python
 build/
