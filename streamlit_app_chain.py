@@ -72,17 +72,21 @@ def get_conversation_chain(vectordb):
     if "memory" not in st.session_state:
         st.session_state.memory = ConversationBufferMemory(memory_key='chat_history', return_messages=True)
 
-    template = """You are an AI medical assistant, talking directly with a patient. Based on the conversation you are 
-    having and the relevant medical texts, Ask a follow-up question to help clarify or refine the diagnosis.
-    
-    When you formulate a question, you will:
-    - Address you in the second person.
-    - Avoid making references to specific places or figures from the medical texts.
-    - Ensure not to repeat questions you've already answered.
-    
-    **Your Previous Answers**: {question} ----------- **Relevant Medical Texts**: {context} -----------"""
+    template = """As a virtual medical assistant, your role is to help gather detailed information to understand the 
+    patient's condition better. Utilize the conversation history and the relevant medical texts provided to ask 
+    insightful follow-up questions. The texts contain cases of other patients who have exhibited similar symptoms. 
+    Refer to these cases to inquire about symptoms that are commonly associated but have not yet been mentioned by 
+    the patient in your current conversation. The objective is to zero in on a more accurate understanding of the 
+    patient's health situation, potentially drawing from diagnoses presented in the contextual cases to inform your 
+    line of questioning.
 
-    # añadir: No me hagas referencia a figuras, etc ... no me repitas preguntas si te las he contestado
+    While crafting your questions, ensure to:
+    - Use a second-person perspective to engage the patient.
+    - Refrain from referring to specific details from the medical texts to avoid confusion.
+    - Not repeat any question that has already been asked in the conversation.
+    
+    **Your Previous Responses**: {question} ----------- **Relevant Medical Texts**: {context} -----------"""
+
     QA_PROMPT = PromptTemplate(template=template, input_variables=["question", "context"])
     model = ConversationalRetrievalChain.from_llm(
         llm=llm,
