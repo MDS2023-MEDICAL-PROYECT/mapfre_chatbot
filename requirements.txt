@@ -1,0 +1,5 @@
+streamlit==1.25.0
+streamlit_authenticator==0.2.2
+langchain==0.0.251
+deta==1.2.0
+streamlit_chat==0.1.1
