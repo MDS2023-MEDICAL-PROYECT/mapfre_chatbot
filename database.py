@@ -1,10 +1,11 @@
 import os
-from dotenv import load_dotenv
+from constants import DETA_KEY
+# from dotenv import load_dotenv
 from deta import Deta
 
-load_dotenv(".env")
+# load_dotenv(".env")
 # Initialize with a project key
-deta = Deta(os.getenv("DETA_KEY"))
+deta = Deta(DETA_KEY)
 
 # This is how to create/connect a database
 db = deta.Base("Mapfre_Base")
