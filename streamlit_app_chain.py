@@ -1,13 +1,21 @@
 import langchain
 import streamlit as st
 import datetime
+
+from langchain import PromptTemplate
+
 import database as db
 import DoctorSummary_improved as doctor
 from pathlib import Path
 from PIL import Image
 from streamlit_chat import message
 from langchain.chains import ConversationalRetrievalChain
-from langchain.prompts.prompt import PromptTemplate
+from langchain.prompts import (
+    ChatPromptTemplate,
+    MessagesPlaceholder,
+    SystemMessagePromptTemplate,
+    HumanMessagePromptTemplate,
+)
 from constants import OPENAI_API_KEY, INDEX_NAME, PINECONE_API_ENV, PINECONE_API_KEY
 from langchain.embeddings import OpenAIEmbeddings
 from langchain.vectorstores import Pinecone
@@ -81,6 +89,7 @@ def get_conversation_chain(vectordb):
 
     Please adhere to the following guidelines:
     - Pose only one follow-up question in each interaction to maintain a focused and fruitful conversation.
+    - Ask only about one specific symptom
     - Formulate your question from a second-person perspective to foster a direct and personalized engagement with the patient.
     - Avoid making explicit references to the medical texts in your questions to maintain a natural conversation flow.
     - Refrain from referring to specific details from the medical texts to avoid confusion.
@@ -89,18 +98,28 @@ def get_conversation_chain(vectordb):
     
     **Your Previous Responses**: {question} ----------- **Relevant Medical Texts**: {context} -----------"""
 
+    _template = """Given the following conversation and a follow up question, rephrase the follow up question to be a standalone question, in its original language.
+
+        Chat History:
+        {chat_history}
+        Follow Up Input: {question}
+        Standalone question:"""
+
     QA_PROMPT = PromptTemplate(template=template, input_variables=["question", "context"])
+    CONDENSE_QUESTION_PROMPT = PromptTemplate.from_template(_template)
+
     model = ConversationalRetrievalChain.from_llm(
         llm=llm,
         retriever=retriever,
         memory=st.session_state.memory,
+        condense_question_llm= ChatOpenAI(temperature=0, model='gpt-3.5-turbo'),
+        condense_question_prompt=CONDENSE_QUESTION_PROMPT,
         combine_docs_chain_kwargs={"prompt": QA_PROMPT})
 
     return model
 
 
 def main():
-
     langchain.debug = True
     # initial session_state in order to avoid refresh
 
@@ -173,19 +192,10 @@ def main():
 
         with st.spinner("Thinking..."):
             st.session_state.responses = st.session_state.conversation_chain({'question': user_question})
-            #if "responses" not in st.session_state:
-            #    st.session_state.responses = st.session_state.conversation_chain({'question': user_question})
-            #else:
-            #    conversation = convert_to_string(st.session_state.responses)
-            #    user_question = conversation + "-Human: " + str(user_question) + "\n"
-            #    st.session_state.responses = st.session_state.conversation_chain({'question': user_question})
 
             message(st.session_state.responses['answer'], is_user=False, key=str(datetime.datetime.now()) + '_ai',
                     avatar_style="big-smile")
             st.session_state.chat_history = st.session_state.responses['chat_history']
-
-    # else:
-    #    st.warning("Please enter valid personal information in the sidebar.")
 
 
 if __name__ == '__main__':
