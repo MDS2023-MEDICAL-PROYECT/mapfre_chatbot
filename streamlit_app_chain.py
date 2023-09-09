@@ -2,20 +2,14 @@ import langchain
 import streamlit as st
 import datetime
 
-from langchain import PromptTemplate
+from langchain import PromptTemplate, LLMChain, OpenAI
 
 import database as db
 import DoctorSummary_improved as doctor
 from pathlib import Path
 from PIL import Image
 from streamlit_chat import message
-from langchain.chains import ConversationalRetrievalChain
-from langchain.prompts import (
-    ChatPromptTemplate,
-    MessagesPlaceholder,
-    SystemMessagePromptTemplate,
-    HumanMessagePromptTemplate,
-)
+from langchain.chains import ConversationalRetrievalChain, RetrievalQA
 from constants import OPENAI_API_KEY, INDEX_NAME, PINECONE_API_ENV, PINECONE_API_KEY
 from langchain.embeddings import OpenAIEmbeddings
 from langchain.vectorstores import Pinecone
@@ -112,11 +106,48 @@ def get_conversation_chain(vectordb):
         llm=llm,
         retriever=retriever,
         memory=st.session_state.memory,
-        condense_question_llm= ChatOpenAI(temperature=0, model='gpt-3.5-turbo'),
+        condense_question_llm=ChatOpenAI(temperature=0, model='gpt-3.5-turbo'),
         condense_question_prompt=CONDENSE_QUESTION_PROMPT,
         combine_docs_chain_kwargs={"prompt": QA_PROMPT})
 
     return model
+
+
+def get_diagnosis(vectordb, symptoms):
+    llm_diagnosis = OpenAI(temperature=0)
+    retriever = vectordb.as_retriever()
+
+    diagnosis_template = """Given the following symptoms of a patient known as human and the knowledge given in the Relevant 
+    Medical texts, give a 3 possible diagnosis and a number from 0 to 100 with the confidence level you have in the diagnosis.
+    Give the diagnosis in the following format:
+    diagnosis=[{{diagnosis: diagnosis1,confidence level: 90}},{{diagnosis: diagnosis2,confidence level: 70}},{{diagnosis: diagnosis3,confidence level: 65}}]
+
+    **Human symptoms: {question} ----------- **Relevant Medical Texts**: {context} -----------***Give the diagnosis:"""
+
+    DIAGNOSIS_PROMPT = PromptTemplate(template=diagnosis_template, input_variables=["question", "context"])
+
+    diagnosis_model = RetrievalQA.from_chain_type(
+        llm=llm_diagnosis,
+        retriever=retriever,
+        return_source_documents=True,
+        chain_type_kwargs={"prompt": DIAGNOSIS_PROMPT})
+
+    return diagnosis_model(symptoms)["result"]
+
+
+def get_symptoms_summary(chat_history):
+    llm = ChatOpenAI(temperature=0)
+    prompt_template = PromptTemplate.from_template(
+        """Given the following chat history: 
+        *****Chat history between Human and Assistant*****
+        {chat}
+        *****
+        Summarize the Human symptoms"""
+    )
+    prompt_template.format(chat=chat_history)
+    summary_model = LLMChain(llm=llm, prompt=prompt_template, output_key="summary")
+
+    return summary_model(chat_history)
 
 
 def main():
@@ -158,21 +189,9 @@ def main():
                 **Teléfono**: +52-555-1234567\n
                 """)
 
-        # st.session_state.authenticator.logout('Logout', 'sidebar', key='unique_key')
         if st.button(label="Coger Cita"):
             doctor.main()
-        # last_name = st.sidebar.text_input("Last Name", "")
-        # age = st.sidebar.number_input("Age", min_value=0, max_value=150, value=0)
 
-        # st.header("Symptoms")
-        # symptoms = st.text_area("Check patient symptoms here", "")
-
-        # st.header("Possible Diagnoses")
-        # diagnosis_1 = st.text_input("Diagnosis 1", "")
-        # diagnosis_2 = st.text_input("Diagnosis 2", "")
-        # diagnosis_3 = st.text_input("Diagnosis 3", "")
-
-    # if first_name and last_name and age > 0:
     personal_message = f"Hello {st.session_state.name}, how can I help you?"
     message(personal_message, is_user=False, avatar_style="big-smile")
 
@@ -192,13 +211,11 @@ def main():
 
         with st.spinner("Thinking..."):
             st.session_state.responses = st.session_state.conversation_chain({'question': user_question})
-
             message(st.session_state.responses['answer'], is_user=False, key=str(datetime.datetime.now()) + '_ai',
                     avatar_style="big-smile")
             st.session_state.chat_history = st.session_state.responses['chat_history']
 
+        summary_symptoms = get_symptoms_summary(str(st.session_state.chat_history))
+        st.write(summary_symptoms["summary"])
+        st.write(get_diagnosis(st.session_state.vectordb, summary_symptoms["summary"]))
 
-if __name__ == '__main__':
-    main()
-else:
-    print(__name__)
