@@ -53,8 +53,6 @@ st.session_state.dni = username.upper()
 
 
 if st.session_state["authentication_status"]:
-    # authenticator.logout('Logout', 'main', key='unique_key')
-    print(st.session_state.dni)
     mapfre.main()
 elif st.session_state["authentication_status"] is False:
     st.error('Username/password is incorrect')

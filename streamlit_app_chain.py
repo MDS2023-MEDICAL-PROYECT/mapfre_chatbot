@@ -1,13 +1,15 @@
 import langchain
 import streamlit as st
 import datetime
+
+from langchain import PromptTemplate, LLMChain, OpenAI
+
 import database as db
 import DoctorSummary_improved as doctor
 from pathlib import Path
 from PIL import Image
 from streamlit_chat import message
-from langchain.chains import ConversationalRetrievalChain
-from langchain.prompts.prompt import PromptTemplate
+from langchain.chains import ConversationalRetrievalChain, RetrievalQA
 from constants import OPENAI_API_KEY, INDEX_NAME, PINECONE_API_ENV, PINECONE_API_KEY
 from langchain.embeddings import OpenAIEmbeddings
 from langchain.vectorstores import Pinecone
@@ -72,31 +74,83 @@ def get_conversation_chain(vectordb):
     if "memory" not in st.session_state:
         st.session_state.memory = ConversationBufferMemory(memory_key='chat_history', return_messages=True)
 
-    template = """You are an AI medical assistant. Based on our conversation and the relevant medical texts, 
-    I'll suggest a follow-up question to help clarify or refine the diagnosis.
-    
-    When I formulate my question, I will:
-    - Address you in the second person.
-    - Avoid making references to specific places or figures from the medical texts.
-    - Ensure not to repeat questions you've already answered.
-    
-    **Your Previous Answers**: {question} ----------- **Relevant Medical Texts**: {context} ----------- **My Next 
-    Action**: If you've responded to five questions, I'll directly recommend a specialist for you. Otherwise, 
-    I'll provide another question."""
+    template = """As a virtual medical assistant, your role is to facilitate a detailed understanding of the 
+    patient's current health condition. Refer to the conversation history to identify the symptoms explicitly 
+    mentioned by the patient so far. Then, with the help of the relevant medical texts — which contain information 
+    about symptoms in other patients — formulate a single follow-up question to inquire about a related symptom that 
+    the patient has not mentioned but is present in the medical texts, helping in gathering comprehensive details to 
+    understand the patient's health better.
 
-    # añadir: No me hagas referencia a figuras, etc ... no me repitas preguntas si te las he contestado
+    Please adhere to the following guidelines:
+    - Pose only one follow-up question in each interaction to maintain a focused and fruitful conversation.
+    - Ask only about one specific symptom
+    - Formulate your question from a second-person perspective to foster a direct and personalized engagement with the patient.
+    - Avoid making explicit references to the medical texts in your questions to maintain a natural conversation flow.
+    - Refrain from referring to specific details from the medical texts to avoid confusion.
+    - Steer clear of repeating questions that have previously been posed during the conversation.
+    - Be very kind
+    
+    **Your Previous Responses**: {question} ----------- **Relevant Medical Texts**: {context} -----------"""
+
+    _template = """Given the following conversation and a follow up question, rephrase the follow up question to be a standalone question, in its original language.
+
+        Chat History:
+        {chat_history}
+        Follow Up Input: {question}
+        Standalone question:"""
+
     QA_PROMPT = PromptTemplate(template=template, input_variables=["question", "context"])
+    CONDENSE_QUESTION_PROMPT = PromptTemplate.from_template(_template)
+
     model = ConversationalRetrievalChain.from_llm(
         llm=llm,
         retriever=retriever,
         memory=st.session_state.memory,
+        condense_question_llm=ChatOpenAI(temperature=0, model='gpt-3.5-turbo'),
+        condense_question_prompt=CONDENSE_QUESTION_PROMPT,
         combine_docs_chain_kwargs={"prompt": QA_PROMPT})
 
     return model
 
 
-def main():
+def get_diagnosis(vectordb, symptoms):
+    llm_diagnosis = OpenAI(temperature=0)
+    retriever = vectordb.as_retriever()
 
+    diagnosis_template = """Given the following symptoms of a patient known as human and the knowledge given in the Relevant 
+    Medical texts, give a 3 possible diagnosis and a number from 0 to 100 with the confidence level you have in the diagnosis.
+    Give the diagnosis in the following format:
+    diagnosis=[{{diagnosis: diagnosis1,confidence level: 90}},{{diagnosis: diagnosis2,confidence level: 70}},{{diagnosis: diagnosis3,confidence level: 65}}]
+
+    **Human symptoms: {question} ----------- **Relevant Medical Texts**: {context} -----------***Give the diagnosis:"""
+
+    DIAGNOSIS_PROMPT = PromptTemplate(template=diagnosis_template, input_variables=["question", "context"])
+
+    diagnosis_model = RetrievalQA.from_chain_type(
+        llm=llm_diagnosis,
+        retriever=retriever,
+        return_source_documents=True,
+        chain_type_kwargs={"prompt": DIAGNOSIS_PROMPT})
+
+    return diagnosis_model(symptoms)["result"]
+
+
+def get_symptoms_summary(chat_history):
+    llm = ChatOpenAI(temperature=0)
+    prompt_template = PromptTemplate.from_template(
+        """Given the following chat history: 
+        *****Chat history between Human and Assistant*****
+        {chat}
+        *****
+        Summarize the Human symptoms"""
+    )
+    prompt_template.format(chat=chat_history)
+    summary_model = LLMChain(llm=llm, prompt=prompt_template, output_key="summary")
+
+    return summary_model(chat_history)
+
+
+def main():
     langchain.debug = True
     # initial session_state in order to avoid refresh
 
@@ -135,21 +189,9 @@ def main():
                 **Teléfono**: +52-555-1234567\n
                 """)
 
-        # st.session_state.authenticator.logout('Logout', 'sidebar', key='unique_key')
         if st.button(label="Coger Cita"):
             doctor.main()
-        # last_name = st.sidebar.text_input("Last Name", "")
-        # age = st.sidebar.number_input("Age", min_value=0, max_value=150, value=0)
 
-        # st.header("Symptoms")
-        # symptoms = st.text_area("Check patient symptoms here", "")
-
-        # st.header("Possible Diagnoses")
-        # diagnosis_1 = st.text_input("Diagnosis 1", "")
-        # diagnosis_2 = st.text_input("Diagnosis 2", "")
-        # diagnosis_3 = st.text_input("Diagnosis 3", "")
-
-    # if first_name and last_name and age > 0:
     personal_message = f"Hello {st.session_state.name}, how can I help you?"
     message(personal_message, is_user=False, avatar_style="big-smile")
 
@@ -169,22 +211,11 @@ def main():
 
         with st.spinner("Thinking..."):
             st.session_state.responses = st.session_state.conversation_chain({'question': user_question})
-            #if "responses" not in st.session_state:
-            #    st.session_state.responses = st.session_state.conversation_chain({'question': user_question})
-            #else:
-            #    conversation = convert_to_string(st.session_state.responses)
-            #    user_question = conversation + "-Human: " + str(user_question) + "\n"
-            #    st.session_state.responses = st.session_state.conversation_chain({'question': user_question})
-
             message(st.session_state.responses['answer'], is_user=False, key=str(datetime.datetime.now()) + '_ai',
                     avatar_style="big-smile")
             st.session_state.chat_history = st.session_state.responses['chat_history']
 
-    # else:
-    #    st.warning("Please enter valid personal information in the sidebar.")
+        summary_symptoms = get_symptoms_summary(str(st.session_state.chat_history))
+        st.write(summary_symptoms["summary"])
+        st.write(get_diagnosis(st.session_state.vectordb, summary_symptoms["summary"]))
 
-
-if __name__ == '__main__':
-    main()
-else:
-    print(__name__)

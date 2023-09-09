@@ -3,3 +3,6 @@ streamlit_authenticator==0.2.2
 langchain==0.0.251
 deta==1.2.0
 streamlit_chat==0.1.1
+pinecone_client==2.2.2
+openai==0.27.8
+tiktoken==0.4.0
