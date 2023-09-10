@@ -1,3 +1,5 @@
+import time
+
 import langchain
 import streamlit as st
 import datetime
@@ -10,7 +12,7 @@ from pathlib import Path
 from PIL import Image
 from streamlit_chat import message
 from langchain.chains import ConversationalRetrievalChain, RetrievalQA
-from constants import OPENAI_API_KEY, INDEX_NAME, PINECONE_API_ENV, PINECONE_API_KEY
+from constants import OPENAI_API_KEY, INDEX_NAME, PINECONE_API_ENV, PINECONE_API_KEY, ITERATIONS
 from langchain.embeddings import OpenAIEmbeddings
 from langchain.vectorstores import Pinecone
 from langchain.chat_models import ChatOpenAI
@@ -168,6 +170,10 @@ def main():
         st.session_state.name = None
     if "dni" not in st.session_state:
         st.session_state.dni = None
+    if "iterations" not in st.session_state:
+        st.session_state.iterations = 0
+    if "summary_symptoms" not in st.session_state:
+        st.session_state.summary_symptoms = ""
 
     # Sidebar for personal information
     with st.sidebar:
@@ -189,13 +195,16 @@ def main():
                 **Teléfono**: +52-555-1234567\n
                 """)
 
-        if st.button(label="Coger Cita"):
-            doctor.main()
+        if st.session_state.iterations >= ITERATIONS:
+            if st.button(label="Take appointment"):
+                st.write("Your appointment ... ")
+                # doctor.main()
 
     personal_message = f"Hello {st.session_state.name}, how can I help you?"
     message(personal_message, is_user=False, avatar_style="big-smile")
 
-    user_question = st.chat_input("Ask your question")
+    finish_conversation = st.session_state.iterations >= ITERATIONS
+    user_question = st.chat_input(placeholder="Describe your symptoms", disabled=finish_conversation)
 
     if user_question:
         if not st.session_state.chat_history:
@@ -209,13 +218,21 @@ def main():
 
         message(user_question, is_user=True, key=str(datetime.datetime.now()) + '_user')
 
-        with st.spinner("Thinking..."):
-            st.session_state.responses = st.session_state.conversation_chain({'question': user_question})
-            message(st.session_state.responses['answer'], is_user=False, key=str(datetime.datetime.now()) + '_ai',
-                    avatar_style="big-smile")
-            st.session_state.chat_history = st.session_state.responses['chat_history']
+        if not finish_conversation:
+            with st.spinner("Thinking..."):
+                st.session_state.responses = st.session_state.conversation_chain({'question': user_question})
+                message(st.session_state.responses['answer'], is_user=False, key=str(datetime.datetime.now()) + '_ai',
+                        avatar_style="big-smile")
+                st.session_state.chat_history = st.session_state.responses['chat_history']
+                st.session_state.summary_symptoms = get_symptoms_summary(str(st.session_state.chat_history))
+                st.write(st.session_state.summary_symptoms["summary"])
 
-        summary_symptoms = get_symptoms_summary(str(st.session_state.chat_history))
-        st.write(summary_symptoms["summary"])
-        st.write(get_diagnosis(st.session_state.vectordb, summary_symptoms["summary"]))
+        else:
+            st.toast('Processing your symptoms to find specialist...')
+            time.sleep(3)
+            st.toast('Your specialist is xxx. Looking in his agenda ...')
+            time.sleep((3))
+            st.write(get_diagnosis(st.session_state.vectordb, st.session_state.summary_symptoms["summary"]))
 
+        # number of interactions with the patient
+        st.session_state.iterations += 1
