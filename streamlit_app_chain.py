@@ -7,8 +7,7 @@ import datetime
 from langchain import PromptTemplate, LLMChain, OpenAI
 
 import database as db
-import doctor_summary
-import doctor_summary as doctor
+
 from pathlib import Path
 from PIL import Image
 from streamlit_chat import message
@@ -217,9 +216,8 @@ def main():
 
         with st.expander("Next Appointments", expanded=True):
             st.date_input(label="X-Ray", value=next_appointment, disabled=False, format="DD/MM/YYYY")
-            st.date_input(label="Surgery", value=next_appointment_2, disabled=False, format="DD/MM/YYYY")
 
-    personal_message = f"Hello {st.session_state.name}, how can I help you?"
+    personal_message = f"Hello {st.session_state.name}, Hello! I'm here to assist you in finding the right specialist for your health concerns. Can you tell me about the symptoms you're experiencing?"
     message(personal_message, is_user=False, avatar_style="big-smile")
 
     finish_conversation = st.session_state.iterations >= ITERATIONS
@@ -248,21 +246,18 @@ def main():
 
         else:
             with st.status("Searching your appointment ...", expanded=True) as status:
-                st.write('Processing your symptoms to find specialist...')
+                st.write('Processing your symptoms to find a specialist...')
                 diagnosis = get_diagnosis(st.session_state.vectordb, st.session_state.summary_symptoms["summary"])
                 diagnosis_list = json.loads(diagnosis)
                 specialist = diagnosis_list[0]["specialist"]
                 # time.sleep(4)
-                st.write(f'Your specialist is {specialist}. Looking in his agenda ...')
+                st.write(f'We recommend you to take an appointment with a {specialist}. Looking in his agenda ...')
                 medical_report = create_medical_report(st.session_state.chat_history)["report"]
                 db.update_patient(updates={"diagnosis": diagnosis}, dni=st.session_state.dni)
                 db.update_patient(updates={"report": medical_report}, dni=st.session_state.dni)
-                status.update(label="Appointment found!", state="complete", expanded=False)
-
-            if st.button("Appointment"):
-                doctor_summary.main()
-                st.write(diagnosis)
-                st.write(create_medical_report(st.session_state.chat_history)["report"])
+                st.date_input(label=f"{specialist}", value=next_appointment_2, disabled=False, format="DD/MM/YYYY")
+                status.update(label="Appointment found!", state="complete", expanded=True)
+                st.button("Take Appointment")
 
         # number of interactions with the patient
         st.session_state.iterations += 1
