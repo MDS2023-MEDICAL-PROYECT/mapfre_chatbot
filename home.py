@@ -7,11 +7,12 @@ import yaml
 from yaml.loader import SafeLoader
 
 st.set_page_config(
-        page_title="Medical Chatbot",
-        page_icon="🧑‍⚕️"
-
+    page_title="Medical Chatbot",
+    page_icon="🧑‍⚕️",
+    layout="wide",
+    initial_sidebar_state="expanded"
     )
-st.header("Your own Medical Chatbot⚕️")
+st.header("Your AI-Medical Assistant⚕️")
 
 # --- HIDE STREAMLIT STYLE ---
 hide_st_style = """
