@@ -119,7 +119,7 @@ def get_conversation_chain(vectordb):
 
 def get_diagnosis(vectordb, symptoms):
     llm_diagnosis = OpenAI(temperature=0)
-    retriever = vectordb.as_retriever()
+    retriever = vectordb
 
     diagnosis_template = """Given the following symptoms of a patient known as human and the knowledge given in the Relevant 
     Medical texts, give a 3 possible diagnosis and a number from 0 to 100 with the confidence level you have in the diagnosis.
