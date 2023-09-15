@@ -9,24 +9,8 @@ profile_pic = current_dir / "assets" / "sofia_palenciano.png"
 # --- LOAD PROFILE PIC ---
 profile_pic = Image.open(profile_pic)
 
-# st.set_page_config(page_title="Tu asistente médico", page_icon=":wave:", layout="wide")
-
-# --- HIDE STREAMLIT STYLE ---
-# hide_st_style = """
-            # <style>
-            #MainMenu {visibility: hidden;}
-            # footer {visibility: hidden;}
-            # header {visibility: hidden;}
-            # .stApp {margin-top: -50px}
-            # </style>
-            # """
-# st.markdown(hide_st_style, unsafe_allow_html=True)
-
 
 def main():
-    # ----- HEADER SECTION -----
-    # with st.container():
-    #    st.title("Tu asistente médico :wave:")
 
     with st.container():
         left_col, right_col = st.columns([3, 1])
@@ -95,27 +79,5 @@ def main():
         else:
             user_text = st.text_input("Tú:", value=st.session_state.user_input)
 
-        # Check if the user text changes
-        if user_text and (not st.session_state.chat_history or (
-                st.session_state.chat_history and st.session_state.chat_history[-1][1] != user_text)):
-            st.session_state.chat_history.append(("Tú", user_text))
 
-            # Simulate assistant's reply (can be modified to more dynamic responses)
-            st.session_state.chat_history.append(("Asistente", "Gracias por tu mensaje, Sofia. ¿Cómo puedo ayudarte?"))
-
-            # Indicate that a message has been sent
-            st.session_state.message_sent = True
-
-            # Clear the input box value stored in session state
-            st.session_state.user_input = ""
-
-        # Display the chat history
-        for user, message in st.session_state.chat_history:
-            if user == "Tú":
-                st.markdown(f"**{user}:** {message}  :point_right:")
-            else:
-                st.markdown(f":point_left:  **{user}:** {message}")
-
-
-if __name__ == "__main__":
-    main()
+main()

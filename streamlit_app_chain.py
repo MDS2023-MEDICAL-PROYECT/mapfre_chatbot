@@ -1,3 +1,5 @@
+import time
+import json
 import langchain
 import streamlit as st
 import datetime
@@ -5,12 +7,13 @@ import datetime
 from langchain import PromptTemplate, LLMChain, OpenAI
 
 import database as db
-import DoctorSummary_improved as doctor
+import doctor_summary
+import doctor_summary as doctor
 from pathlib import Path
 from PIL import Image
 from streamlit_chat import message
 from langchain.chains import ConversationalRetrievalChain, RetrievalQA
-from constants import OPENAI_API_KEY, INDEX_NAME, PINECONE_API_ENV, PINECONE_API_KEY
+from constants import OPENAI_API_KEY, INDEX_NAME, PINECONE_API_ENV, PINECONE_API_KEY, ITERATIONS
 from langchain.embeddings import OpenAIEmbeddings
 from langchain.vectorstores import Pinecone
 from langchain.chat_models import ChatOpenAI
@@ -119,10 +122,11 @@ def get_diagnosis(vectordb, symptoms):
 
     diagnosis_template = """Given the following symptoms of a patient known as human and the knowledge given in the Relevant 
     Medical texts, give a 3 possible diagnosis and a number from 0 to 100 with the confidence level you have in the diagnosis.
+    Followed by the medical specialist the patient should visit given the diagnosis.
     Give the diagnosis in the following format:
-    diagnosis=[{{diagnosis: diagnosis1,confidence level: 90}},{{diagnosis: diagnosis2,confidence level: 70}},{{diagnosis: diagnosis3,confidence level: 65}}]
+    [{{"diagnosis": "diagnosis1","confidence level": 90,"specialist": "specialist1"}},{{"diagnosis": "diagnosis2","confidence level": 70,"specialist": "specialist2"}},{{"diagnosis": "diagnosis3","confidence level": 65,"specialist": "specialist3"}}]
 
-    **Human symptoms: {question} ----------- **Relevant Medical Texts**: {context} -----------***Give the diagnosis:"""
+    Human symptoms: {question} ----------- Relevant Medical Texts: {context} -----------Give the diagnosis:"""
 
     DIAGNOSIS_PROMPT = PromptTemplate(template=diagnosis_template, input_variables=["question", "context"])
 
@@ -150,6 +154,21 @@ def get_symptoms_summary(chat_history):
     return summary_model(chat_history)
 
 
+def create_medical_report(chat_history):
+    llm = ChatOpenAI(temperature=0)
+    prompt_report_template = PromptTemplate.from_template(
+        """Given the following chat history: 
+        *****Chat history between Human and Assistant*****
+        {chat}
+        *****
+        Generate the human medical report"""
+    )
+    prompt_report_template.format(chat=chat_history)
+    report_model = LLMChain(llm=llm, prompt=prompt_report_template, output_key="report")
+
+    return report_model(chat_history)
+
+
 def main():
     langchain.debug = True
     # initial session_state in order to avoid refresh
@@ -168,34 +187,43 @@ def main():
         st.session_state.name = None
     if "dni" not in st.session_state:
         st.session_state.dni = None
+    if "iterations" not in st.session_state:
+        st.session_state.iterations = 0
+    if "summary_symptoms" not in st.session_state:
+        st.session_state.summary_symptoms = ""
 
     # Sidebar for personal information
     with st.sidebar:
         current_dir = Path(__file__).parent if "__file__" in locals() else Path.cwd()
-        profile_pic = current_dir / "assets" / "Bernardo.png"
-        profile_pic = Image.open(profile_pic)
+        profile_pic_path = current_dir / "assets" / "Bernardo.png"
+        profile_pic = Image.open(profile_pic_path)
         patient = db.get_patient(st.session_state.dni)
 
         st.sidebar.header("Your Information")
         st.session_state.authenticator.logout('Logout', 'sidebar', key='unique_key')
-        # st.sidebar.text(help="First Name", body=st.session_state.name)
         st.image(profile_pic, width=250)
+
         st.markdown(f"""
                 **Nombre**: {st.session_state.name}\n
                 **DNI**: {st.session_state.dni}\n  
                 **Fecha de Nacimiento**: 15 de Agosto de 1983\n  
                 **Sexo**: Masculino\n  
                 **Dirección**: Calle Real No. 45, Ciudad Central\n  
-                **Teléfono**: +52-555-1234567\n
+                **Teléfono**: +34630547119\n
                 """)
 
-        if st.button(label="Coger Cita"):
-            doctor.main()
+        next_appointment = datetime.date(2023, 9, 28)
+        next_appointment_2 = datetime.date(2023, 10, 30)
+
+        with st.expander("Next Appointments", expanded=True):
+            st.date_input(label="X-Ray", value=next_appointment, disabled=False, format="DD/MM/YYYY")
+            st.date_input(label="Surgery", value=next_appointment_2, disabled=False, format="DD/MM/YYYY")
 
     personal_message = f"Hello {st.session_state.name}, how can I help you?"
     message(personal_message, is_user=False, avatar_style="big-smile")
 
-    user_question = st.chat_input("Ask your question")
+    finish_conversation = st.session_state.iterations >= ITERATIONS
+    user_question = st.chat_input(placeholder="Describe your symptoms", disabled=finish_conversation)
 
     if user_question:
         if not st.session_state.chat_history:
@@ -203,19 +231,38 @@ def main():
         else:
             for i, msg in enumerate(st.session_state.chat_history):
                 if i % 2 == 0:
-                    message(msg.content, is_user=True, key=str(i) + '_user')
+                    message(msg.content, is_user=True, key=str(i) + '_user', avatar_style="personas")
                 else:
                     message(msg.content, is_user=False, key=str(i) + '_ai', avatar_style="big-smile")
 
-        message(user_question, is_user=True, key=str(datetime.datetime.now()) + '_user')
+        message(user_question, is_user=True, key=str(datetime.datetime.now()) + '_user', avatar_style="personas")
 
-        with st.spinner("Thinking..."):
-            st.session_state.responses = st.session_state.conversation_chain({'question': user_question})
-            message(st.session_state.responses['answer'], is_user=False, key=str(datetime.datetime.now()) + '_ai',
-                    avatar_style="big-smile")
-            st.session_state.chat_history = st.session_state.responses['chat_history']
+        if not finish_conversation:
+            with st.spinner("Thinking..."):
+                st.session_state.responses = st.session_state.conversation_chain({'question': user_question})
+                message(st.session_state.responses['answer'], is_user=False, key=str(datetime.datetime.now()) + '_ai',
+                        avatar_style="big-smile")
+                st.session_state.chat_history = st.session_state.responses['chat_history']
+                st.session_state.summary_symptoms = get_symptoms_summary(str(st.session_state.chat_history))
+                st.write(st.session_state.summary_symptoms["summary"])
 
-        summary_symptoms = get_symptoms_summary(str(st.session_state.chat_history))
-        st.write(summary_symptoms["summary"])
-        st.write(get_diagnosis(st.session_state.vectordb, summary_symptoms["summary"]))
+        else:
+            with st.status("Searching your appointment ...", expanded=True) as status:
+                st.write('Processing your symptoms to find specialist...')
+                diagnosis = get_diagnosis(st.session_state.vectordb, st.session_state.summary_symptoms["summary"])
+                diagnosis_list = json.loads(diagnosis)
+                specialist = diagnosis_list[0]["specialist"]
+                # time.sleep(4)
+                st.write(f'Your specialist is {specialist}. Looking in his agenda ...')
+                medical_report = create_medical_report(st.session_state.chat_history)["report"]
+                db.update_patient(updates={"diagnosis": diagnosis}, dni=st.session_state.dni)
+                db.update_patient(updates={"report": medical_report}, dni=st.session_state.dni)
+                status.update(label="Appointment found!", state="complete", expanded=False)
 
+            if st.button("Appointment"):
+                doctor_summary.main()
+                st.write(diagnosis)
+                st.write(create_medical_report(st.session_state.chat_history)["report"])
+
+        # number of interactions with the patient
+        st.session_state.iterations += 1
