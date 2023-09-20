@@ -1,12 +1,10 @@
 import json
 import langchain
+import pinecone
 import streamlit as st
 import datetime
 
-from langchain import PromptTemplate, LLMChain, OpenAI
-
 from src.clients.database import DetaClient
-
 from pathlib import Path
 from PIL import Image
 from streamlit_chat import message
@@ -15,7 +13,7 @@ from src.constants.medic_bot import MedicBotConstants
 from langchain.embeddings import OpenAIEmbeddings
 from langchain.vectorstores import Pinecone
 from langchain.chat_models import ChatOpenAI
-import pinecone
+from langchain import PromptTemplate, LLMChain, OpenAI
 from langchain.chains.conversation.memory import ConversationBufferMemory
 
 
@@ -69,7 +67,8 @@ def get_conversation_chain(vectordb):
     
     **Your Previous Responses**: {question} ----------- **Relevant Medical Texts**: {context} -----------"""
 
-    _template = """Given the following conversation and a follow up question, rephrase the follow up question to be a standalone question, in its original language.
+    _template = """Given the following conversation and a follow up question, rephrase the follow up question to be a
+     standalone question, in its original language.
 
         Chat History:
         {chat_history}
@@ -98,7 +97,9 @@ def get_diagnosis(vectordb, symptoms):
     Medical texts, give a 3 possible diagnosis and a number from 0 to 100 with the confidence level you have in the diagnosis.
     Followed by the medical specialist the patient should visit given the diagnosis.
     Give the diagnosis in the following format:
-    [{{"diagnosis": "diagnosis1","confidence level": 90,"specialist": "specialist1"}},{{"diagnosis": "diagnosis2","confidence level": 70,"specialist": "specialist2"}},{{"diagnosis": "diagnosis3","confidence level": 65,"specialist": "specialist3"}}]
+    [{{"diagnosis": "diagnosis1","confidence level": 90,"specialist": "specialist1"}},{{"diagnosis": "diagnosis2", 
+    "confidence level": 70,"specialist": "specialist2"}},{{"diagnosis": "diagnosis3","confidence level": 65, 
+    "specialist": "specialist3"}}]
 
     Human symptoms: {question} ----------- Relevant Medical Texts: {context} -----------Give the diagnosis:"""
 

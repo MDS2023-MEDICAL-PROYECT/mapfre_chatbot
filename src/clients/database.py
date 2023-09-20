@@ -1,11 +1,10 @@
-import os
-from src.constants.medic_bot import DETA_KEY
-# from dotenv import load_dotenv
+
+from src.constants.medic_bot import MedicBotConstants
 from deta import Deta
 
 # load_dotenv(".env")
 # Initialize with a project key
-deta = Deta(DETA_KEY)
+deta = Deta(MedicBotConstants.DETA_KEY)
 
 # This is how to create/connect a database
 db = deta.Base("Mapfre_Base")
