@@ -1,4 +1,3 @@
-import time
 import json
 import langchain
 import streamlit as st
@@ -6,13 +5,13 @@ import datetime
 
 from langchain import PromptTemplate, LLMChain, OpenAI
 
-import database as db
+from src.clients.database import DetaClient
 
 from pathlib import Path
 from PIL import Image
 from streamlit_chat import message
 from langchain.chains import ConversationalRetrievalChain, RetrievalQA
-from constants import OPENAI_API_KEY, INDEX_NAME, PINECONE_API_ENV, PINECONE_API_KEY, ITERATIONS
+from src.constants.medic_bot import MedicBotConstants
 from langchain.embeddings import OpenAIEmbeddings
 from langchain.vectorstores import Pinecone
 from langchain.chat_models import ChatOpenAI
@@ -20,39 +19,15 @@ import pinecone
 from langchain.chains.conversation.memory import ConversationBufferMemory
 
 
-def clean_string(input):
-    substring = ""
-
-    if input is not None:
-        start_pos = str(input).find(" additional_kwargs")
-        if start_pos != -1:
-            substring = str(input)[8:start_pos]
-
-    return substring
-
-
-def convert_to_string(messages):
-    i = 0
-    result = ""
-    for message in messages:
-        if i % 2 == 0:
-            result += "-Human: " + clean_string(message) + "\n"
-        else:
-            result += "-Doctor: " + clean_string(message) + "\n"
-        i = i + 1
-
-    return result
-
-
 def init_vectorstore():
     pinecone.init(
-        api_key=PINECONE_API_KEY,  # find at app.pinecone.io
-        environment=PINECONE_API_ENV,  # next to api key in console
+        api_key=MedicBotConstants.PINECONE_API_KEY,  # find at app.pinecone.io
+        environment=MedicBotConstants.PINECONE_API_ENV,  # next to api key in console
     )
-    index_name = INDEX_NAME
+    index_name = MedicBotConstants.INDEX_NAME
 
     if index_name not in pinecone.list_indexes():
-        pinecone.create_index(INDEX_NAME, dimension=1536, metric="euclidean")
+        pinecone.create_index(MedicBotConstants.INDEX_NAME, dimension=1536, metric="euclidean")
 
     index = pinecone.Index(index_name)
     return index
@@ -63,7 +38,7 @@ def get_vectordb():
     vectordb = Pinecone(
         index=index,
         embedding_function=OpenAIEmbeddings(
-            openai_api_key=OPENAI_API_KEY).embed_query,
+            openai_api_key=MedicBotConstants.OPENAI_API_KEY).embed_query,
         text_key="text"
     )
     return vectordb
@@ -194,9 +169,11 @@ def main():
     # Sidebar for personal information
     with st.sidebar:
         current_dir = Path(__file__).parent if "__file__" in locals() else Path.cwd()
+
         profile_pic_path = current_dir / "assets" / "Bernardo.png"
         profile_pic = Image.open(profile_pic_path)
-        patient = db.get_patient(st.session_state.dni)
+
+        patient = DetaClient.get_patient(st.session_state.dni)
 
         st.sidebar.header("Your Information")
         st.session_state.authenticator.logout('Logout', 'sidebar', key='unique_key')
@@ -217,10 +194,13 @@ def main():
         with st.expander("Next Appointments", expanded=True):
             st.date_input(label="X-Ray", value=next_appointment, disabled=False, format="DD/MM/YYYY")
 
-    personal_message = f"Hello {st.session_state.name}, Hello! I'm here to assist you in finding the right specialist for your health concerns. Can you tell me about the symptoms you're experiencing?"
+    personal_message = f"Hello {st.session_state.name}, Hello! I'm here to assist you in" \
+                       f" finding the right specialist for your health concerns." \
+                       f" Can you tell me about the symptoms you're experiencing?"
+
     message(personal_message, is_user=False, avatar_style="big-smile")
 
-    finish_conversation = st.session_state.iterations >= ITERATIONS
+    finish_conversation = st.session_state.iterations >= MedicBotConstants.ITERATIONS
     user_question = st.chat_input(placeholder="Describe your symptoms", disabled=finish_conversation)
 
     if user_question:
@@ -237,26 +217,38 @@ def main():
 
         if not finish_conversation:
             with st.spinner("Thinking..."):
+
                 st.session_state.responses = st.session_state.conversation_chain({'question': user_question})
+
                 message(st.session_state.responses['answer'], is_user=False, key=str(datetime.datetime.now()) + '_ai',
                         avatar_style="big-smile")
+
                 st.session_state.chat_history = st.session_state.responses['chat_history']
                 st.session_state.summary_symptoms = get_symptoms_summary(str(st.session_state.chat_history))
+
                 st.write(st.session_state.summary_symptoms["summary"])
 
         else:
             with st.status("Searching your appointment ...", expanded=True) as status:
+
                 st.write('Processing your symptoms to find a specialist...')
+
                 diagnosis = get_diagnosis(st.session_state.vectordb, st.session_state.summary_symptoms["summary"])
                 diagnosis_list = json.loads(diagnosis)
+
                 specialist = diagnosis_list[0]["specialist"]
                 # time.sleep(4)
                 st.write(f'We recommend you to take an appointment with a {specialist}. Looking in his agenda ...')
+
                 medical_report = create_medical_report(st.session_state.chat_history)["report"]
-                db.update_patient(updates={"diagnosis": diagnosis}, dni=st.session_state.dni)
-                db.update_patient(updates={"report": medical_report}, dni=st.session_state.dni)
+
+                DetaClient.update_patient(updates={"diagnosis": diagnosis}, dni=st.session_state.dni)
+                DetaClient.update_patient(updates={"report": medical_report}, dni=st.session_state.dni)
+
                 st.date_input(label=f"{specialist}", value=next_appointment_2, disabled=False, format="DD/MM/YYYY")
+
                 status.update(label="Appointment found!", state="complete", expanded=True)
+
                 st.button("Take Appointment")
 
         # number of interactions with the patient

@@ -1,10 +1,8 @@
 import streamlit as st
 import streamlit_authenticator as stauth # pip install streamlit-authenticator
-import database as db
-import streamlit_app_chain as mapfre
-
 import yaml
 from yaml.loader import SafeLoader
+from src.classes.streamlit_app_chain import main
 
 st.set_page_config(
     page_title="Medical Chatbot",
@@ -26,7 +24,7 @@ hide_st_style = """
 st.markdown(hide_st_style, unsafe_allow_html=True)
 
 
-with open('config.yaml') as file:
+with open('./src/data/config.yaml') as file:
     config = yaml.load(file, Loader=SafeLoader)
 
 if "authenticator" not in st.session_state:
@@ -54,7 +52,7 @@ st.session_state.dni = username.upper()
 
 
 if st.session_state["authentication_status"]:
-    mapfre.main()
+    main()
 elif st.session_state["authentication_status"] is False:
     st.error('Username/password is incorrect')
 elif st.session_state["authentication_status"] is None:

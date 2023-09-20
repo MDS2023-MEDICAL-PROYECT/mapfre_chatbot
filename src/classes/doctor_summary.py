@@ -2,7 +2,7 @@ import streamlit as st
 from pathlib import Path
 from PIL import Image
 import json
-import database as db
+from src.clients.database import DetaClient
 
 st.set_page_config(
     layout="wide"
@@ -21,7 +21,7 @@ hide_st_style = """
 st.markdown(hide_st_style, unsafe_allow_html=True)
 
 dni = "45101711E"
-patient = db.get_patient(dni)
+patient = DetaClient.get_patient(dni)
 patient_name = patient["first_name"]
 patient_birth = patient["birth_date"]
 patient_sex = patient["sex"]
@@ -42,7 +42,7 @@ def main():
         # ----- LEFT COLUMN -----
         with right_col:
             with st.expander("Información del Paciente", expanded=True):
-                col1, col2 = st.columns([1,5], gap="small")
+                col1, col2 = st.columns([1, 5], gap="small")
                 col1.image(profile_pic, width=200)
                 col2.markdown(f"""
                 **Nombre**: {patient_name}            
@@ -89,9 +89,8 @@ def main():
                 # st.markdown(f"**{diagnosis}**")
                 # st.progress(probability)
 
-            #with st.expander("Análisis médico", expanded=True):
+            # with st.expander("Análisis médico", expanded=True):
             st.text_area(label='Diagnóstico médico', height=400, placeholder='Incluya sus conclusiones')
-
 
 
 main()
