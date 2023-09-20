@@ -172,13 +172,15 @@ def main():
         current_dir = Path(__file__).parent if "__file__" in locals() else Path.cwd()
 
         profile_pic_path = current_dir / "assets" / "Bernardo.png"
-        profile_pic = Image.open(profile_pic_path)
+        # profile_pic = Image.open(profile_pic_path)
+
+        st.markdown(profile_pic_path)
 
         patient = DetaClient.get_patient(st.session_state.dni)
 
         st.sidebar.header("Your Information")
         st.session_state.authenticator.logout('Logout', 'sidebar', key='unique_key')
-        st.image(profile_pic, width=250)
+        #st.image(profile_pic, width=250)
 
         st.markdown(f"""
                 **Nombre**: {st.session_state.name}\n
