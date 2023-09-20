@@ -3,7 +3,9 @@ import langchain
 import pinecone
 import streamlit as st
 import datetime
-
+from langchain.retrievers import PineconeHybridSearchRetriever
+from pinecone_text.sparse import BM25Encoder
+from langchain.vectorstores.base import VectorStoreRetriever
 from src.clients.database import DetaClient
 from pathlib import Path
 from PIL import Image
@@ -33,18 +35,18 @@ def init_vectorstore():
 
 def get_vectordb():
     index = init_vectorstore()
-    vectordb = Pinecone(
-        index=index,
-        embedding_function=OpenAIEmbeddings(
-            openai_api_key=MedicBotConstants.OPENAI_API_KEY).embed_query,
-        text_key="text"
+    vectordb = PineconeHybridSearchRetriever(
+        embeddings=OpenAIEmbeddings(
+            model="text-embedding-ada-002",
+            openai_api_key=OPENAI_API_KEY)
+        , sparse_encoder=BM25Encoder().default(), index=index, top_k=10, alpha=0
     )
     return vectordb
 
 
 def get_conversation_chain(vectordb):
     llm = ChatOpenAI(temperature=0)
-    retriever = vectordb.as_retriever()
+    retriever = vectordb
 
     if "memory" not in st.session_state:
         st.session_state.memory = ConversationBufferMemory(memory_key='chat_history', return_messages=True)
@@ -91,7 +93,7 @@ def get_conversation_chain(vectordb):
 
 def get_diagnosis(vectordb, symptoms):
     llm_diagnosis = OpenAI(temperature=0)
-    retriever = vectordb.as_retriever()
+    retriever = vectordb
 
     diagnosis_template = """Given the following symptoms of a patient known as human and the knowledge given in the Relevant 
     Medical texts, give a 3 possible diagnosis and a number from 0 to 100 with the confidence level you have in the diagnosis.
