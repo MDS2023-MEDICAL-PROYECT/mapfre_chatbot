@@ -12,6 +12,10 @@ credentials:
       name: Ana
       last_name: Triay Muñoz
       password: $2b$12$pgs3a5xcGrcxTbOxa7Z10.OpKDZ4qkTzjzAVOlPO.I7YBkc2Fhg4u
+    11111111E:
+      name: Sergio
+      last_name: Sillero
+      password: $2b$12$kMStLKfoTfpDglkcgo2wn.Q2MMZqgG12ozCkAcpLGulY2okL57L5q
 cookie:
   expiry_days: 30
   key: pass123 # Must be string
