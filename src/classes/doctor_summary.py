@@ -21,12 +21,14 @@ hide_st_style = """
 st.markdown(hide_st_style, unsafe_allow_html=True)
 
 dni = "45101711E"
+
 patient = DetaClient.get_patient(dni)
 patient_name = patient["first_name"]
 patient_birth = patient["birth_date"]
 patient_sex = patient["sex"]
 patient_report = patient["report"]
 patient_diagnosis = patient["diagnosis"]
+
 # --- PATH SETTINGS ---
 current_dir = Path(__file__).parent if "__file__" in locals() else Path.cwd()
 profile_pic = current_dir / "assets" / f"{patient_name}.png"
@@ -64,7 +66,6 @@ def main():
 
                 **Familiares**:
                 - :family: Padre fallecido por enfermedad cardiovascular. Madre con diabetes tipo 2.
-                
                 
                 **Historia Actual**: {patient_report}
 
