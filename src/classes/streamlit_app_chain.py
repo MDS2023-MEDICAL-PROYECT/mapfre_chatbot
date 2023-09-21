@@ -176,8 +176,6 @@ def main():
         profile_pic_path = current_dir / "assets" / "Bernardo.png"
         profile_pic = Image.open(profile_pic_path)
 
-        st.markdown(profile_pic_path)
-
         patient = DetaClient.get_patient(st.session_state.dni)
 
         st.sidebar.header("Your Information")
