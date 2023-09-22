@@ -51,11 +51,11 @@ def main():
                 col1.image(profile_pic, width=200)
                 col2.markdown(f"""
                 **Name**: {Name}
-
+                
                 **Date of Birth**: {patient_birth}
-
+                
                 **Gender**: {Gender}
-
+                
                 **Phone**: +34653479511
                 """)
 
@@ -67,8 +67,7 @@ def main():
                 st.markdown("""- :smoking: **Tobacco**: Active smoker.""")
                 st.markdown("""- :wine_glass: **Alcohol**: Occasional consumption.""")
                 st.markdown("""**Family**:""")
-                st.markdown(
-                    """- :family: Father passed away from cardiovascular disease. Mother with type 2 diabetes.""")
+                st.markdown("""- :family: Father passed away from cardiovascular disease. Mother with type 2 diabetes.""")
 
         with center_col:
             # st.subheader("Top 3 Diagnosis")
@@ -83,6 +82,5 @@ def main():
         with right_col:
             st.markdown("""**Current History**:""")
             st.write(format_patient_report.format(Name=Name, Age=40, Gender=Gender))
-
 
 main()
