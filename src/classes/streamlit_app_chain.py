@@ -53,7 +53,7 @@ def get_vectordb():
         embeddings=OpenAIEmbeddings(
             model="text-embedding-ada-002",
             openai_api_key=MedicBotConstants.OPENAI_API_KEY)
-        , sparse_encoder=BM25Encoder().default(), index=index, top_k=10, alpha=0.5
+        , sparse_encoder=BM25Encoder().default(), index=index, top_k=5, alpha=0.5
     )
     return vectordb
 
@@ -67,10 +67,12 @@ def get_conversation_chain(vectordb):
 
     template = """As a virtual medical assistant, your role is to facilitate a detailed understanding of the 
     patient's current health condition. Refer to the conversation history to identify the symptoms explicitly 
-    mentioned by the patient so far. Then, with the help of the relevant medical texts — which contain information 
-    about symptoms in other patients — formulate a single follow-up question to inquire about a related symptom that 
-    the patient has not mentioned but is present in the medical texts, helping in gathering comprehensive details to 
-    understand the patient's health better.
+    mentioned by the patient so far. 
+    Based on the medical texts and the patient's symptoms mentioned, 
+    the doctor should inquire about any additional symptoms that may be related to the diagnoses found in the medical 
+    texts. Please ask the patient a question to determine if they are experiencing any symptom that has not been 
+    mentioned in the chat history but is associated with the diagnoses from the medical texts. Be sure to phrase your 
+    question in a way that fosters a direct and personalized engagement with the patient.
 
     Please adhere to the following guidelines:
     - Pose only one follow-up question in each interaction to maintain a focused and fruitful conversation.
@@ -79,9 +81,13 @@ def get_conversation_chain(vectordb):
     - Avoid making explicit references to the medical texts in your questions to maintain a natural conversation flow.
     - Refrain from referring to specific details from the medical texts to avoid confusion.
     - Steer clear of repeating questions that have previously been posed during the conversation.
-    - Be very kind
+    - Be kind and maintain a natural conversation flow
     
-    **Your Previous Responses**: {question} ----------- **Relevant Medical Texts**: {context} -----------"""
+    **Your Previous Responses**: {question} ----------- **Relevant Medical Texts**: {context} -----------
+    
+    Your task is to ask as you were the doctor, without including reasoning. Please provide a follow-up question
+    
+    """
 
     QA_PROMPT = PromptTemplate(template=template, input_variables=["question", "context"])
 
@@ -122,23 +128,14 @@ def get_diagnosis(vectordb, symptoms):
 def get_symptoms_summary(chat_history):
     llm = ChatOpenAI(temperature=0)
     prompt_template = PromptTemplate.from_template(
-        """Given the following chat history: 
-        *****Chat history between Human and Assistant*****
-        {chat}
-        *****
+        """Given the chat history provided below, which consists of interactions between a patient (referred to as 
+        "Human") and a doctor (referred to as "Assistant"), please summarize the symptoms explicitly mentioned or 
+        confirmed by the patient (Human).
         
-        The chat history has the following structure: 
+        *****chat history *****
+        {chat} 
         
-        [HumanMessage(content='I have a high fever.', additional_kwargs={}, example=False), AIMessage(content='Have 
-        you experienced muscle aches?', additional_kwargs={}, example=False), HumanMessage(content='Yes', 
-        additional_kwargs={}, example=False), AIMessage(content='Have you experienced weakness in your joints?', 
-        additional_kwargs={}, example=False),HumanMessage(content='No, I haven't', additional_kwargs={}, 
-        example=False)]
-        
-        In this conversation, the Human (HumanMessage) responds to questions from a doctor (AIMessage) regarding 
-        their symptoms.
-        
-        Your task is to provide a summary of the Human's symptoms."""
+        """
     )
     prompt_template.format(chat=chat_history)
     summary_model = LLMChain(llm=llm, prompt=prompt_template, output_key="summary")
@@ -188,6 +185,8 @@ def main():
         st.session_state.iterations = 0
     if "summary_symptoms" not in st.session_state:
         st.session_state.summary_symptoms = ""
+    if "responses" not in st.session_state:
+        st.session_state.responses = None
 
     # Sidebar for personal information
     with st.sidebar:
@@ -226,30 +225,27 @@ def main():
     print(user_question_1)
     if user_question_1:
         user_question = translate_english_spanish(user_question_1)['translation']
-        print(user_question)
-        print(st.session_state.chat_history)
         if not st.session_state.chat_history:
             pass
         else:
             for i, msg in enumerate(st.session_state.chat_history):
+                translated_msg = translate_english_spanish(msg.content)['translation']
                 if i % 2 == 0:
-                    message(msg.content, is_user=True, key=str(i) + '_user', avatar_style="personas")
+                    message(translated_msg, is_user=True, key=str(i) + '_user', avatar_style="personas")
                 else:
-                    message(msg.content, is_user=False, key=str(i) + '_ai', avatar_style="big-smile")
+                    message(translated_msg, is_user=False, key=str(i) + '_ai', avatar_style="big-smile")
 
-        message(user_question, is_user=True, key=str(datetime.datetime.now()) + '_user', avatar_style="personas")
+        message(user_question_1, is_user=True, key=str(datetime.datetime.now()) + '_user', avatar_style="personas")
 
         if not finish_conversation:
             with st.spinner("Thinking..."):
-
                 st.session_state.responses = st.session_state.conversation_chain({'question': user_question})
-
-                message(st.session_state.responses['answer'], is_user=False, key=str(datetime.datetime.now()) + '_ai',
+                translated_answer = translate_english_spanish(st.session_state.responses['answer'])['translation']
+                message(translated_answer, is_user=False, key=str(datetime.datetime.now()) + '_ai',
                         avatar_style="big-smile")
 
                 st.session_state.chat_history = st.session_state.responses['chat_history']
                 st.session_state.summary_symptoms = get_symptoms_summary(str(st.session_state.chat_history))
-
                 st.write(st.session_state.summary_symptoms["summary"])
 
         else:
@@ -261,7 +257,6 @@ def main():
                 diagnosis_list = json.loads(diagnosis)
 
                 specialist = diagnosis_list[0]["specialist"]
-                # time.sleep(4)
                 st.write(f'We recommend you to take an appointment with a {specialist}. Looking in his agenda ...')
 
                 medical_report = create_medical_report(st.session_state.chat_history)["report"]
