@@ -17,6 +17,22 @@ from langchain import PromptTemplate, LLMChain, OpenAI
 from langchain.chains.conversation.memory import ConversationBufferMemory
 
 
+def translate_english_spanish(phrase):
+    llm = ChatOpenAI(temperature=0, openai_api_key=MedicBotConstants.OPENAI_API_KEY)
+    prompt_template = PromptTemplate.from_template(
+        """Your are a translator from english to Spanish or from Spanish to English. Translate the following phrase. 
+        Your answer must be direct.
+
+        {chat}
+        """
+
+    )
+    prompt_template.format(chat=phrase)
+    translation_model = LLMChain(llm=llm, prompt=prompt_template, output_key="translation")
+
+    return translation_model(phrase)
+
+
 def init_vectorstore():
     pinecone.init(
         api_key=MedicBotConstants.PINECONE_API_KEY,  # find at app.pinecone.io
@@ -67,23 +83,12 @@ def get_conversation_chain(vectordb):
     
     **Your Previous Responses**: {question} ----------- **Relevant Medical Texts**: {context} -----------"""
 
-    _template = """Given the following conversation and a follow up question, rephrase the follow up question to be a
-     standalone question, in its original language.
-
-        Chat History:
-        {chat_history}
-        Follow Up Input: {question}
-        Standalone question:"""
-
     QA_PROMPT = PromptTemplate(template=template, input_variables=["question", "context"])
-    CONDENSE_QUESTION_PROMPT = PromptTemplate.from_template(_template)
 
     model = ConversationalRetrievalChain.from_llm(
         llm=llm,
         retriever=retriever,
         memory=st.session_state.memory,
-        condense_question_llm=ChatOpenAI(temperature=0, model='gpt-3.5-turbo'),
-        condense_question_prompt=CONDENSE_QUESTION_PROMPT,
         combine_docs_chain_kwargs={"prompt": QA_PROMPT})
 
     return model
@@ -121,7 +126,19 @@ def get_symptoms_summary(chat_history):
         *****Chat history between Human and Assistant*****
         {chat}
         *****
-        Summarize the Human symptoms"""
+        
+        The chat history has the following structure: 
+        
+        [HumanMessage(content='I have a high fever.', additional_kwargs={}, example=False), AIMessage(content='Have 
+        you experienced muscle aches?', additional_kwargs={}, example=False), HumanMessage(content='Yes', 
+        additional_kwargs={}, example=False), AIMessage(content='Have you experienced weakness in your joints?', 
+        additional_kwargs={}, example=False),HumanMessage(content='No, I haven't', additional_kwargs={}, 
+        example=False)]
+        
+        In this conversation, the Human (HumanMessage) responds to questions from a doctor (AIMessage) regarding 
+        their symptoms.
+        
+        Your task is to provide a summary of the Human's symptoms."""
     )
     prompt_template.format(chat=chat_history)
     summary_model = LLMChain(llm=llm, prompt=prompt_template, output_key="summary")
@@ -205,9 +222,12 @@ def main():
     message(personal_message, is_user=False, avatar_style="big-smile")
 
     finish_conversation = st.session_state.iterations >= MedicBotConstants.ITERATIONS
-    user_question = st.chat_input(placeholder="Describe your symptoms", disabled=finish_conversation)
-
-    if user_question:
+    user_question_1 = st.chat_input(placeholder="Describe your symptoms", disabled=finish_conversation)
+    print(user_question_1)
+    if user_question_1:
+        user_question = translate_english_spanish(user_question_1)['translation']
+        print(user_question)
+        print(st.session_state.chat_history)
         if not st.session_state.chat_history:
             pass
         else:
