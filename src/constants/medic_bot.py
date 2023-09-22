@@ -8,5 +8,5 @@ class MedicBotConstants:
     OPENAI_API_KEY: Final[str] = st.secrets["OPENAI_API_KEY"]
     DETA_KEY: Final[str] = st.secrets["DETA_KEY"]
     INDEX_NAME: Final[str] = 'thevalleyembeddings'
-    ITERATIONS = 4
+    ITERATIONS = 3
 

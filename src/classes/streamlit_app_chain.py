@@ -37,7 +37,7 @@ def get_vectordb():
         embeddings=OpenAIEmbeddings(
             model="text-embedding-ada-002",
             openai_api_key=MedicBotConstants.OPENAI_API_KEY)
-        , sparse_encoder=BM25Encoder().default(), index=index, top_k=10, alpha=0
+        , sparse_encoder=BM25Encoder().default(), index=index, top_k=10, alpha=0.5
     )
     return vectordb
 
