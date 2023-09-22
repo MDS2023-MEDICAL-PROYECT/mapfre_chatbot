@@ -5,7 +5,6 @@ import streamlit as st
 import datetime
 from langchain.retrievers import PineconeHybridSearchRetriever
 from pinecone_text.sparse import BM25Encoder
-from langchain.vectorstores.base import VectorStoreRetriever
 from src.clients.database import DetaClient
 from pathlib import Path
 from PIL import Image
@@ -13,7 +12,6 @@ from streamlit_chat import message
 from langchain.chains import ConversationalRetrievalChain, RetrievalQA
 from src.constants.medic_bot import MedicBotConstants
 from langchain.embeddings import OpenAIEmbeddings
-from langchain.vectorstores import Pinecone
 from langchain.chat_models import ChatOpenAI
 from langchain import PromptTemplate, LLMChain, OpenAI
 from langchain.chains.conversation.memory import ConversationBufferMemory
@@ -149,6 +147,7 @@ def create_medical_report(chat_history):
 def main():
     langchain.debug = True
     # initial session_state in order to avoid refresh
+    patient = DetaClient.get_patient(st.session_state.dni)
 
     if "vectordb" not in st.session_state:
         st.session_state.vectordb = get_vectordb()
@@ -164,6 +163,10 @@ def main():
         st.session_state.name = None
     if "dni" not in st.session_state:
         st.session_state.dni = None
+    if "birthday" not in st.session_state:
+        st.session_state.birthday = patient["birth_date"]
+    if "gender" not in st.session_state:
+        st.session_state.gender = patient["sex"]
     if "iterations" not in st.session_state:
         st.session_state.iterations = 0
     if "summary_symptoms" not in st.session_state:
@@ -173,22 +176,20 @@ def main():
     with st.sidebar:
         current_dir = Path(__file__).parent if "__file__" in locals() else Path.cwd()
 
-        profile_pic_path = current_dir / "assets" / "Bernardo.png"
+        profile_pic_path = current_dir / "assets" / f"{st.session_state.name}.png"
         profile_pic = Image.open(profile_pic_path)
-
-        patient = DetaClient.get_patient(st.session_state.dni)
 
         st.sidebar.header("Your Information")
         st.session_state.authenticator.logout('Logout', 'sidebar', key='unique_key')
         st.image(profile_pic, width=250)
 
         st.markdown(f"""
-                **Nombre**: {st.session_state.name}\n
+                **Name**: {st.session_state.name}\n
                 **DNI**: {st.session_state.dni}\n  
-                **Fecha de Nacimiento**: 15 de Agosto de 1983\n  
-                **Sexo**: Masculino\n  
-                **Dirección**: Calle Real No. 45, Ciudad Central\n  
-                **Teléfono**: +34630547119\n
+                **Date of Birth**: {st.session_state.birthday}\n  
+                **Gender**: {st.session_state.gender}\n  
+                **Direction**: Calle Real No. 45, Ciudad Central\n  
+                **Phone**: +34630547119\n
                 """)
 
         next_appointment = datetime.date(2023, 9, 28)
