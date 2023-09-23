@@ -74,13 +74,14 @@ def get_conversation_chain(vectordb):
     mentioned in the chat history but is associated with the diagnoses from the medical texts. Be sure to phrase your 
     question in a way that fosters a direct and personalized engagement with the patient.
 
-    Please adhere to the following guidelines:
-    - Pose only one follow-up question in each interaction to maintain a focused and fruitful conversation.
-    - Ask only about one specific symptom
-    - Formulate your question from a second-person perspective to foster a direct and personalized engagement with the patient.
-    - Avoid making explicit references to the medical texts in your questions to maintain a natural conversation flow.
-    - Refrain from referring to specific details from the medical texts to avoid confusion.
-    - Steer clear of repeating questions that have previously been posed during the conversation.
+    Please adhere to the following guidelines: 
+    - Pose only one follow-up question in each interaction to maintain a focused and fruitful conversation. 
+    - Ask only about one specific symptom 
+    - Formulate your question from a second person perspective to foster a direct and personalized engagement with the 
+    patient. 
+    - Avoid making explicit references to the medical texts in your questions to maintain a natural conversation flow. 
+    - Refrain from referring to specific details from the medical texts to avoid confusion. 
+    - Avoid asking questions that have already been addressed in the conversation. 
     - Be kind and maintain a natural conversation flow
     
     **Your Previous Responses**: {question} ----------- **Relevant Medical Texts**: {context} -----------
@@ -89,12 +90,23 @@ def get_conversation_chain(vectordb):
     
     """
 
+    _template = """Given the following conversation and a follow up question, rephrase the follow up question to be a 
+    standalone question, in its original language.
+
+            Chat History:
+            {chat_history}
+            Follow Up Input: {question}
+            Standalone question:"""
+
     QA_PROMPT = PromptTemplate(template=template, input_variables=["question", "context"])
+    CONDENSE_QUESTION_PROMPT = PromptTemplate.from_template(_template)
 
     model = ConversationalRetrievalChain.from_llm(
         llm=llm,
         retriever=retriever,
         memory=st.session_state.memory,
+        condense_question_llm=ChatOpenAI(temperature=0, model='gpt-3.5-turbo'),
+        condense_question_prompt=CONDENSE_QUESTION_PROMPT,
         combine_docs_chain_kwargs={"prompt": QA_PROMPT})
 
     return model
@@ -104,14 +116,15 @@ def get_diagnosis(vectordb, symptoms):
     llm_diagnosis = OpenAI(temperature=0)
     retriever = vectordb
 
-    diagnosis_template = """Given the following symptoms of a patient known as human and the knowledge given in the Relevant 
-    Medical texts, give a 3 possible diagnosis and a number from 0 to 100 with the confidence level you have in the diagnosis.
-    Followed by the medical specialist the patient should visit given the diagnosis.
-    Give the diagnosis in the following format:
-    [{{"diagnosis": "diagnosis1","confidence level": 90,"specialist": "specialist1"}},{{"diagnosis": "diagnosis2", 
-    "confidence level": 70,"specialist": "specialist2"}},{{"diagnosis": "diagnosis3","confidence level": 65, 
-    "specialist": "specialist3"}}]
-
+    diagnosis_template = """Given the following symptoms of a patient known as human and the knowledge given in the 
+    Relevant Medical texts, give a 3 possible diagnosis and a number from 0 to 100 with the confidence level you have 
+    in the diagnosis. Followed by the medical specialist the patient should visit given the diagnosis. You must give 
+    the diagnosis and the specialist in spanish. Give the diagnosis in the following format: 
+    
+    [{{"diagnosis": "diagnosis1","confidence level": 90,"specialist": "specialist1"}},
+    {{"diagnosis": "diagnosis2", "confidence level": 70,"specialist": "specialist2"}},
+    {{"diagnosis": "diagnosis3","confidence level": 65, "specialist": "specialist3"}}]
+    
     Human symptoms: {question} ----------- Relevant Medical Texts: {context} -----------Give the diagnosis:"""
 
     DIAGNOSIS_PROMPT = PromptTemplate(template=diagnosis_template, input_variables=["question", "context"])
@@ -150,7 +163,7 @@ def create_medical_report(chat_history):
         *****Chat history between Human and Assistant*****
         {chat}
         *****
-        Generate the human medical report"""
+        Generate the human medical report in spanish"""
     )
     prompt_report_template.format(chat=chat_history)
     report_model = LLMChain(llm=llm, prompt=prompt_report_template, output_key="report")
@@ -200,28 +213,28 @@ def main():
         st.image(profile_pic, width=250)
 
         st.markdown(f"""
-                **Name**: {st.session_state.name}\n
-                **DNI**: {st.session_state.dni}\n  
-                **Date of Birth**: {st.session_state.birthday}\n  
-                **Gender**: {st.session_state.gender}\n  
-                **Direction**: Calle Real No. 45, Ciudad Central\n  
-                **Phone**: +34630547119\n
-                """)
+                        **Nombre**: {st.session_state.name}\n
+                        **DNI**: {st.session_state.dni}\n  
+                        **Fecha de Nacimiento**: {st.session_state.birthday}\n  
+                        **Género**: {st.session_state.gender}\n  
+                        **Dirección**: Calle Real No. 45, Ciudad Central\n  
+                        **Teléfono**: +34630547119\n
+                        """)
 
         next_appointment = datetime.date(2023, 9, 28)
         next_appointment_2 = datetime.date(2023, 10, 30)
 
-        with st.expander("Next Appointments", expanded=True):
-            st.date_input(label="X-Ray", value=next_appointment, disabled=False, format="DD/MM/YYYY")
+        with st.expander("Próximas Citas", expanded=True):
+            st.date_input(label="Rayos X", value=next_appointment, disabled=False, format="DD/MM/YYYY")
 
-    personal_message = f"Hello {st.session_state.name}, Hello! I'm here to assist you in" \
-                       f" finding the right specialist for your health concerns." \
-                       f" Can you tell me about the symptoms you're experiencing?"
+        personal_message = f"¡Hola {st.session_state.name}!, estoy aquí para ayudarte a" \
+                           f" encontrar al especialista adecuado para tus problemas de salud." \
+                           f" ¿Puedes contarme los síntomas que estás experimentando?"
 
     message(personal_message, is_user=False, avatar_style="big-smile")
 
     finish_conversation = st.session_state.iterations >= MedicBotConstants.ITERATIONS
-    user_question_1 = st.chat_input(placeholder="Describe your symptoms", disabled=finish_conversation)
+    user_question_1 = st.chat_input(placeholder="Describe tus síntomas", disabled=finish_conversation)
     print(user_question_1)
     if user_question_1:
         user_question = translate_english_spanish(user_question_1)['translation']
@@ -238,26 +251,26 @@ def main():
         message(user_question_1, is_user=True, key=str(datetime.datetime.now()) + '_user', avatar_style="personas")
 
         if not finish_conversation:
-            with st.spinner("Thinking..."):
+            with st.spinner("Procesando..."):
                 st.session_state.responses = st.session_state.conversation_chain({'question': user_question})
                 translated_answer = translate_english_spanish(st.session_state.responses['answer'])['translation']
                 message(translated_answer, is_user=False, key=str(datetime.datetime.now()) + '_ai',
                         avatar_style="big-smile")
 
                 st.session_state.chat_history = st.session_state.responses['chat_history']
-                st.session_state.summary_symptoms = get_symptoms_summary(str(st.session_state.chat_history))
-                st.write(st.session_state.summary_symptoms["summary"])
+                # st.session_state.summary_symptoms = get_symptoms_summary(str(st.session_state.chat_history))
+                # st.write(st.session_state.summary_symptoms["summary"])
 
         else:
-            with st.status("Searching your appointment ...", expanded=True) as status:
+            with st.status("Buscando tu cita ...", expanded=True) as status:
 
-                st.write('Processing your symptoms to find a specialist...')
-
+                st.write('Procesando tus síntomas para encontrar tu especialista...')
+                st.session_state.summary_symptoms = get_symptoms_summary(str(st.session_state.chat_history))
                 diagnosis = get_diagnosis(st.session_state.vectordb, st.session_state.summary_symptoms["summary"])
                 diagnosis_list = json.loads(diagnosis)
 
                 specialist = diagnosis_list[0]["specialist"]
-                st.write(f'We recommend you to take an appointment with a {specialist}. Looking in his agenda ...')
+                st.write(f'Te recomiendo que cojas cita con el {specialist}. Buscando en su agenda ...')
 
                 medical_report = create_medical_report(st.session_state.chat_history)["report"]
 
@@ -266,9 +279,9 @@ def main():
 
                 st.date_input(label=f"{specialist}", value=next_appointment_2, disabled=False, format="DD/MM/YYYY")
 
-                status.update(label="Appointment found!", state="complete", expanded=True)
+                status.update(label="Tenemos cita!", state="complete", expanded=True)
 
-                st.button("Take Appointment")
+                st.button("Coger Cita")
 
         # number of interactions with the patient
         st.session_state.iterations += 1

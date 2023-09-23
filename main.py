@@ -10,7 +10,7 @@ st.set_page_config(
     layout="wide",
     initial_sidebar_state="expanded"
     )
-st.header("Your AI-Medical Assistant⚕️")
+st.header("Tu asistente médico con Inteligencia Artificial⚕️")
 
 # --- HIDE STREAMLIT STYLE ---
 hide_st_style = """
