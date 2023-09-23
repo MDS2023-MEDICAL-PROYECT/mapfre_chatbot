@@ -186,7 +186,7 @@ def create_medical_report(chat_history):
 
 
 def main():
-    langchain.debug = True
+    # langchain.debug = True
     # initial session_state in order to avoid refresh
     patient = DetaClient.get_patient(st.session_state.dni)
 
