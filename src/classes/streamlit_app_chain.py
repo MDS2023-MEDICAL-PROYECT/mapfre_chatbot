@@ -163,7 +163,21 @@ def create_medical_report(chat_history):
         *****Chat history between Human and Assistant*****
         {chat}
         *****
-        Generate the human medical report in spanish"""
+        Generate the human medical report in spanish. The report will be reviewed by a doctor. 
+        Adhere the report to the structure:
+
+        **Reason for consultation:** - Provide a brief description of why the patient is seeking medical attention or 
+        the main reason for the consultation.
+        
+        **Current Clinical History:** - Describe in detail and chronologically the symptoms and events related to the 
+        current illness or condition, from its onset to the time of consultation.
+        
+        **Diagnosis:**
+        - State the main diagnosis based on the gathered information and the tests performed.
+        - Mention possible differential diagnoses, if any.
+        
+        **Tests:**
+        - List the possible tests to be performed to confirm the diagnosis."""
     )
     prompt_report_template.format(chat=chat_history)
     report_model = LLMChain(llm=llm, prompt=prompt_report_template, output_key="report")

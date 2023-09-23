@@ -8,7 +8,7 @@ from src.clients.database import DetaClient
 st.set_page_config(
     layout="wide"
 )
-st.header("Patient Health Profile")
+st.header("Expediente Sanitario del Paciente")
 
 # --- HIDE STREAMLIT STYLE ---
 hide_st_style = """
@@ -50,37 +50,37 @@ def main():
                 col1, col2 = st.columns(2, gap="small")
                 col1.image(profile_pic, width=200)
                 col2.markdown(f"""
-                **Name**: {Name}
-                
-                **Date of Birth**: {patient_birth}
-                
-                **Gender**: {Gender}
-                
-                **Phone**: +34653479511
-                """)
+                                **Nombre**: {Name}
 
-                st.markdown("""**Medical History**:""")
-                st.markdown("""- :heartbeat: **Chronic Diseases**: Hypertension diagnosed in 2018.""")
-                st.markdown("""- :no_entry_sign: **Allergies**: Penicillin.""")
-                st.markdown("""- :hospital: **Previous Surgeries**: Appendectomy in 1995.""")
-                st.markdown("""**Habits**:""")
-                st.markdown("""- :smoking: **Tobacco**: Active smoker.""")
-                st.markdown("""- :wine_glass: **Alcohol**: Occasional consumption.""")
-                st.markdown("""**Family**:""")
-                st.markdown("""- :family: Father passed away from cardiovascular disease. Mother with type 2 diabetes.""")
+                                **Fecha de nacimiento**: {patient_birth}
+
+                                **Género**: {Gender}
+
+                                **Teléfono**: +34653479511
+                                """)
+
+                st.markdown("""**Historial Médico**:""")
+                st.markdown("""- :heartbeat: **Enfermedades Crónicas**: Hipertensión diagnosticada en 2018.""")
+                st.markdown("""- :no_entry_sign: **Alergias**: Penicilina.""")
+                st.markdown("""- :hospital: **Cirugías Previas**: Apendicectomía en 1995.""")
+                st.markdown("""**Hábitos**:""")
+                st.markdown("""- :smoking: **Tabaco**: Fumador activo.""")
+                st.markdown("""- :wine_glass: **Alcohol**: Consumo ocasional.""")
+                st.markdown("""**Familia**:""")
+                st.markdown("""- :family: Padre fallecido por enfermedad cardiovascular. Madre con diabetes tipo 2.""")
 
         with center_col:
             # st.subheader("Top 3 Diagnosis")
             diagnosis_list = json.loads(patient_diagnosis)
 
             for diag in diagnosis_list:
-                st.markdown(f"**Diagnosis**: {diag['diagnosis']}({diag['confidence level']})")
+                st.markdown(f"**Diagnóstico**: {diag['diagnosis']}({diag['confidence level']})")
                 st.progress(diag['confidence level'])
 
-            st.text_area(label='Doctor''s follow-up', height=400, placeholder='Add your comments')
+            st.text_area(label='Seguimiento del doctor', height=400, placeholder='Añada sus comentarios')
 
         with right_col:
-            st.markdown("""**Current History**:""")
+            st.markdown("""**Anamnesis Proxima**:""")
             st.write(format_patient_report.format(Name=Name, Age=40, Gender=Gender))
 
 main()
